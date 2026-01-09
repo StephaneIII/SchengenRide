@@ -1,0 +1,32 @@
+@{
+    ViewData["Title"] = "Verify Email";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2 class="text-center mb-4">Enter Confirmation Code</h2>
+            <p class="text-center text-muted">We've sent a confirmation code to your email. Please enter it below.</p>
+            
+            @if (ViewBag.Error != null)
+            {
+                <div class="alert alert-danger">@ViewBag.Error</div>
+            }
+            
+            <form method="post" asp-controller="SignIn" asp-action="Verify">
+                <div class="mb-3">
+                    <label for="Code" class="form-label">Confirmation Code</label>
+                    <input type="text" class="form-control" id="Code" name="Code" required maxlength="6" placeholder="Enter 6-digit code">
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">Verify</button>
+                </div>
+            </form>
+            
+            <div class="text-center mt-3">
+                <a asp-controller="SignIn" asp-action="Index">Back to Sign In</a>
+            </div>
+        </div>
+    </div>
+</div>

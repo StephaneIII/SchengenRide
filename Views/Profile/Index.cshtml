@@ -1,0 +1,94 @@
+@using SamkørselApp.Model
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">My Profile</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            @if (!string.IsNullOrEmpty(ViewBag.ProfilePictureURL?.ToString()))
+                            {
+                                <img src="@ViewBag.ProfilePictureURL" alt="Profile Picture" class="img-fluid rounded-circle mb-3" style="max-width: 150px; max-height: 150px;">
+                            }
+                            else
+                            {
+                                <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 150px; height: 150px;">
+                                    <span class="text-white display-4">@ViewBag.UserName?.ToString().Substring(0, 1).ToUpper()</span>
+                                </div>
+                            }
+                            <h4>@ViewBag.UserName</h4>
+                        </div>
+                        <div class="col-md-8">
+                            <table class="table">
+                                <tbody>
+                                    <tr>
+                                        <th>Email:</th>
+                                        <td>@ViewBag.Email</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Phone:</th>
+                                        <td>@(string.IsNullOrEmpty(ViewBag.Phone?.ToString()) ? "Not provided" : ViewBag.Phone)</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Rating:</th>
+                                        <td>@ViewBag.Rating</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Member since:</th>
+                                        <td>@(((DateTime)ViewBag.JoinDate).ToString("dd MMM yyyy"))</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <a asp-controller="Profile" asp-action="Edit" class="btn btn-primary">Edit Profile</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vehicles Section -->
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">My Vehicles</h4>
+                    @if (ViewBag.Vehicles != null && ((List<Vehicle>)ViewBag.Vehicles).Count < 2)
+                    {
+                        <a asp-controller="Vehicle" asp-action="Index" class="btn btn-sm btn-success">Add Vehicle</a>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.Vehicles != null && ((List<Vehicle>)ViewBag.Vehicles).Count > 0)
+                    {
+                        <div class="row">
+                            @foreach (var vehicle in (List<Vehicle>)ViewBag.Vehicles)
+                            {
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">@vehicle.Brand @vehicle.Model</h5>
+                                            <p class="card-text">
+                                                <strong>Plate:</strong> @vehicle.PlateNumber<br />
+                                                <strong>Color:</strong> @vehicle.Color<br />
+                                                <strong>Comfort Level:</strong> @vehicle.ComfortLevel / 10
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">You haven't registered any vehicles yet.</p>
+                        <a asp-controller="Vehicle" asp-action="Index" class="btn btn-primary">Register Your First Vehicle</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

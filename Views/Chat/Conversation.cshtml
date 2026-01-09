@@ -1,0 +1,203 @@
+@model SamkørselApp.Model.ConversationDetailsViewModel
+@{
+    ViewData["Title"] = "Conversation - " + Model.ParticipantName;
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex align-items-center">
+                    <a asp-action="Index" class="btn btn-outline-secondary me-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                        </svg>
+                        Back
+                    </a>
+                    <div>
+                        <h3 class="mb-0">@Model.ParticipantName</h3>
+                        @if (!string.IsNullOrEmpty(Model.Title))
+                        {
+                            <small class="text-muted">@Model.Title</small>
+                        }
+                        @if (Model.RouteID > 0)
+                        {
+                            <div class="mt-1">
+                                <span class="badge bg-info">Route #@Model.RouteID</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">@TempData["Error"]</div>
+            }
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success">@TempData["Success"]</div>
+            }
+
+            <!-- Chat Container -->
+            <div class="card">
+                <div class="card-body p-0">
+                    <!-- Messages Container -->
+                    <div class="chat-container" style="height: 500px; overflow-y: auto; padding: 20px; background-color: #f8f9fa;">
+                        @if (Model.Messages == null || Model.Messages.Count == 0)
+                        {
+                            <div class="text-center text-muted py-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="mb-3" viewBox="0 0 16 16">
+                                    <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                                </svg>
+                                <p>No messages yet. Start the conversation!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var message in Model.Messages)
+                            {
+                                <div class="d-flex mb-3 @(message.IsCurrentUser ? "justify-content-end" : "justify-content-start")">
+                                    @if (!message.IsCurrentUser)
+                                    {
+                                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px; min-width: 40px; font-size: 1rem;">
+                                            @(message.SenderName.Length > 0 ? message.SenderName[0].ToString().ToUpper() : "?")
+                                        </div>
+                                    }
+                                    
+                                    <div class="message-bubble @(message.IsCurrentUser ? "current-user" : "other-user")" style="max-width: 70%;">
+                                        @if (!message.IsCurrentUser)
+                                        {
+                                            <div class="message-sender text-muted small">@message.SenderName</div>
+                                        }
+                                        <div class="message-content">@message.MessageContent</div>
+                                        <div class="message-time text-muted small">
+                                            @if (message.SentAt.Date == DateTime.Today)
+                                            {
+                                                @message.SentAt.ToString("HH:mm")
+                                            }
+                                            else if (message.SentAt.Date == DateTime.Today.AddDays(-1))
+                                            {
+                                                <text>Yesterday @message.SentAt.ToString("HH:mm")</text>
+                                            }
+                                            else
+                                            {
+                                                @message.SentAt.ToString("dd MMM HH:mm")
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @if (message.IsCurrentUser)
+                                    {
+                                        <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center ms-2" style="width: 40px; height: 40px; min-width: 40px; font-size: 1rem;">
+                                            @(message.SenderName.Length > 0 ? message.SenderName[0].ToString().ToUpper() : "?")
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="border-top p-3 bg-white">
+                        <form asp-action="SendMessage" method="post" class="d-flex">
+                            <input type="hidden" name="conversationId" value="@Model.ConversationID" />
+                            <div class="flex-grow-1 me-2">
+                                <textarea name="message" class="form-control border-0" 
+                                         placeholder="Type your message..." 
+                                         rows="1" 
+                                         style="resize: none; box-shadow: none;"
+                                         onkeydown="handleTextareaKeydown(event)"
+                                         oninput="autoResize(this)"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+                                </svg>
+                                Send
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .message-bubble {
+        padding: 10px 15px;
+        border-radius: 18px;
+        word-wrap: break-word;
+    }
+    
+    .message-bubble.current-user {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .message-bubble.other-user {
+        background-color: #e9ecef;
+        color: #333;
+    }
+    
+    .message-sender {
+        margin-bottom: 2px;
+        font-weight: 500;
+    }
+    
+    .message-time {
+        margin-top: 2px;
+        opacity: 0.7;
+    }
+    
+    .current-user .message-time {
+        text-align: right;
+    }
+    
+    .chat-container {
+        scrollbar-width: thin;
+        scrollbar-color: #ccc transparent;
+    }
+    
+    .chat-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .chat-container::-webkit-scrollbar-thumb {
+        background-color: #ccc;
+        border-radius: 3px;
+    }
+</style>
+
+<script>
+    // Auto-scroll to bottom on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatContainer = document.querySelector('.chat-container');
+        if (chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    });
+
+    // Handle Enter key to send message (Shift+Enter for new line)
+    function handleTextareaKeydown(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            const form = event.target.closest('form');
+            if (event.target.value.trim()) {
+                form.submit();
+            }
+        }
+    }
+
+    // Auto-resize textarea
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+</script>

@@ -1,0 +1,201 @@
+@model List<SamkørselApp.Controllers.RouteViewModel>
+@{
+    ViewData["Title"] = "Available Routes";
+    var searchCriteria = ViewBag.SearchCriteria as SamkørselApp.Controllers.RouteSearchCriteria;
+    var cities = ViewBag.Cities as List<SamkørselApp.Model.City>;
+}
+
+<div class="container mt-4">
+    <h2>Search Available Routes</h2>
+    
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    <!-- Search Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-search"></i> Search Criteria</h5>
+        </div>
+        <div class="card-body">
+            <form asp-action="SearchRoutes" method="post">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="DepartureCity" class="form-label">Departure City</label>
+                            <input type="text" class="form-control" name="DepartureCity" 
+                                   value="@searchCriteria?.DepartureCity" 
+                                   placeholder="Enter departure city" list="departureCities">
+                            <datalist id="departureCities">
+                                @if (cities != null)
+                                {
+                                    @foreach (var city in cities)
+                                    {
+                                        <option value="@city.CityName"></option>
+                                    }
+                                }
+                            </datalist>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="DestinationCity" class="form-label">Destination City</label>
+                            <input type="text" class="form-control" name="DestinationCity" 
+                                   value="@searchCriteria?.DestinationCity" 
+                                   placeholder="Enter destination city" list="destinationCities">
+                            <datalist id="destinationCities">
+                                @if (cities != null)
+                                {
+                                    @foreach (var city in cities)
+                                    {
+                                        <option value="@city.CityName"></option>
+                                    }
+                                }
+                            </datalist>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="MinPrice" class="form-label">Min Price (€)</label>
+                            <input type="number" class="form-control" name="MinPrice" 
+                                   value="@searchCriteria?.MinPrice" 
+                                   placeholder="0" min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="MaxPrice" class="form-label">Max Price (€)</label>
+                            <input type="number" class="form-control" name="MaxPrice" 
+                                   value="@searchCriteria?.MaxPrice" 
+                                   placeholder="1000" min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="MinComfortLevel" class="form-label">Min Comfort Level</label>
+                            <select class="form-control" name="MinComfortLevel">
+                                <option value="">Any Comfort Level</option>
+                                <option value="Basic" selected="@(searchCriteria?.MinComfortLevel == "Basic")">Basic</option>
+                                <option value="Standard" selected="@(searchCriteria?.MinComfortLevel == "Standard")">Standard</option>
+                                <option value="Premium" selected="@(searchCriteria?.MinComfortLevel == "Premium")">Premium</option>
+                                <option value="Luxury" selected="@(searchCriteria?.MinComfortLevel == "Luxury")">Luxury</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="MinAvailableSeats" class="form-label">Min Available Seats</label>
+                            <input type="number" class="form-control" name="MinAvailableSeats" 
+                                   value="@searchCriteria?.MinAvailableSeats" 
+                                   placeholder="1" min="1" max="8">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i> Search Routes
+                            </button>
+                            <a asp-action="Index" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-clockwise"></i> Clear Filters
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Results -->
+    <h4>Search Results (@Model.Count routes found)</h4>
+
+    @if (Model.Count == 0)
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            No routes match your search criteria. Try adjusting your filters or check back later!
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var route in Model)
+            {
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>
+                                <strong>@route.StartCity</strong> → <strong>@route.EndCity</strong>
+                            </span>
+                            <span class="badge bg-success">@route.RemainingSeats seats left</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">
+                                <i class="bi bi-calendar"></i> 
+                                <strong>Departure:</strong> @route.Departure.ToString("dd MMM yyyy, HH:mm")
+                            </p>
+                            @if (route.Arrival.HasValue)
+                            {
+                                <p class="mb-2">
+                                    <i class="bi bi-clock"></i>
+                                    <strong>Arrival:</strong> @route.Arrival.Value.ToString("dd MMM yyyy, HH:mm")
+                                </p>
+                            }
+                            <p class="mb-2">
+                                <i class="bi bi-person-circle"></i>
+                                <strong>Driver:</strong> @route.DriverName
+                            </p>
+                            <p class="mb-2">
+                                <i class="bi bi-car-front"></i>
+                                <strong>Vehicle:</strong> @route.VehicleName
+                            </p>
+                            <p class="mb-2">
+                                <i class="bi bi-star-fill"></i>
+                                <strong>Comfort:</strong> 
+                                <span class="badge bg-info">@route.ComfortLevel</span>
+                            </p>
+                            @if (route.RouteStops.Any())
+                            {
+                                <p class="mb-2">
+                                    <i class="bi bi-geo-alt"></i>
+                                    <strong>Stops:</strong> 
+                                    <small class="text-muted">@string.Join(" → ", route.RouteStops)</small>
+                                </p>
+                            }
+                            @if (!string.IsNullOrEmpty(route.Description))
+                            {
+                                <p class="mb-2 text-muted">
+                                    <i class="bi bi-chat-quote"></i>
+                                    <small>@route.Description</small>
+                                </p>
+                            }
+                            <hr />
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h5 mb-0 text-primary">
+                                    €@route.PricePerSeat.ToString("F2") 
+                                    <small class="text-muted">per seat</small>
+                                </span>
+                                <div>
+                                    <a asp-controller="Route" asp-action="RouteInfoView" asp-route-id="@route.RouteID" class="btn btn-outline-info btn-sm me-2">
+                                        <i class="bi bi-info-circle"></i> Info
+                                    </a>
+                                    <a asp-action="Book" asp-route-id="@route.RouteID" class="btn btn-primary">
+                                        <i class="bi bi-ticket-perforated"></i> Book Now
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

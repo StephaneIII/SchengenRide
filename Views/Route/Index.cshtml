@@ -1,0 +1,317 @@
+@using SamkørselApp.Model
+@{
+    ViewData["Title"] = "Create Route";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Create a New Route</h2>
+                </div>
+                <div class="card-body">
+                    <form asp-controller="Route" asp-action="Create" method="post">
+                        
+                        <!-- Part 1: Basic Route Info -->
+                        <div id="part1">
+                            <h5 class="mb-3">Step 1: Route Details</h5>
+                            <div class="mb-3">
+                                <label for="Departure" class="form-label">Departure Time</label>
+                                <input type="datetime-local" class="form-control" id="Departure" name="Departure" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="Arrival" class="form-label">Arrival Time</label>
+                                <input type="datetime-local" class="form-control" id="Arrival" name="Arrival" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="AvailableSeats" class="form-label">Available Seats</label>
+                                <input type="number" class="form-control" id="AvailableSeats" name="AvailableSeats" min="1" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="PricePerSeat" class="form-label">Price per Seat (€)</label>
+                                <input type="number" class="form-control" id="PricePerSeat" name="PricePerSeat" min="0" step="0.01" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="VehicleId" class="form-label">Select Vehicle <a asp-controller="Vehicle" class="btn btn-success btn-sm">Add Vehicle</a></label>
+                                <select class="form-select" id="VehicleId" name="VehicleId" required>
+                                    <option value="" disabled selected>Select your vehicle</option>
+                                    @foreach (var vehicle in ViewBag.Vehicles as List<Vehicle>)
+                                    {
+                                        <option value="@vehicle.VehicleID">@vehicle.Brand @vehicle.Model (@vehicle.PlateNumber)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="Description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="Description" name="Description"/>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="showPart2()">Continue</button>
+                        </div>
+
+                        <!-- Part 2: Location Selection (Hidden initially) -->
+                        <div id="part2" style="display: none;">
+                            <h5 class="mb-3">Step 2: Itinerary</h5>
+
+                            <!-- Search for cities -->
+                            <div class="mb-3">
+                                <label for="CityName" class="form-label">Search Cities</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="CityName" placeholder="Enter city name..." onkeyup="searchCities()" />
+                                    <button type="button" class="btn btn-secondary" onclick="searchCities()">Search</button>
+                                </div>
+                                <!-- Search results -->
+                                <div id="cityResults" class="list-group mt-2"></div>
+                            </div>
+
+                            <!-- Itinerary list -->
+                            <div class="mb-4">
+                                <h6>Your Itinerary <small class="text-muted">(drag to reorder)</small></h6>
+                                <div id="itineraryList" class="list-group">
+                                    <!-- Stops will be added here dynamically -->
+                                </div>
+                                <p id="emptyItinerary" class="text-muted mt-2">No stops added yet. Search and add cities above.</p>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" onclick="showPart1()">Back</button>
+                                <button type="submit" class="btn btn-primary">Create Route</button>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var itinerary = [];
+        var draggedItem = null;
+
+        function showPart2() {
+            var part1Inputs = document.querySelectorAll('#part1 input[required], #part1 select[required]');
+            var isValid = true;
+            
+            part1Inputs.forEach(function(input) {
+                if (!input.value) {
+                    input.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            });
+
+            if (isValid) {
+                document.getElementById('part1').style.display = 'none';
+                document.getElementById('part2').style.display = 'block';
+            }
+        }
+
+        function showPart1() {
+            document.getElementById('part2').style.display = 'none';
+            document.getElementById('part1').style.display = 'block';
+        }
+
+        function searchCities() {
+            var cityName = document.getElementById('CityName').value;
+            var resultsDiv = document.getElementById('cityResults');
+            
+            if (cityName.length < 2) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            fetch('/Route/GetCitiesbyname?name=' + encodeURIComponent(cityName))
+                .then(response => response.json())
+                .then(cities => {
+                    resultsDiv.innerHTML = '';
+                    
+                    if (cities.length === 0) {
+                        resultsDiv.innerHTML = '<div class="list-group-item text-muted">No cities found</div>';
+                        return;
+                    }
+
+                    cities.forEach(function(city) {
+                        var item = document.createElement('div');
+                        item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                        item.innerHTML = '<span>' + city.cityName + '</span>' +
+                            '<button type="button" class="btn btn-primary btn-sm" onclick="addToItinerary(' + city.cityID + ', \'' + city.cityName.replace(/'/g, "\\'") + '\')">Add to Itinerary</button>';
+                        resultsDiv.appendChild(item);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching cities:', error);
+                });
+        }
+
+        function addToItinerary(cityID, cityName) {
+            // Check if already added
+            if (itinerary.find(s => s.cityID === cityID)) {
+                alert('This city is already in your itinerary!');
+                return;
+            }
+
+            // Add to itinerary with default times
+            itinerary.push({
+                cityID: cityID,
+                cityName: cityName,
+                minArrivalTime: '',
+                maximalDelay: 0.25  // Default 15 min (0.25 hours)
+            });
+
+            updateItineraryDisplay();
+            
+            // Clear search
+            document.getElementById('CityName').value = '';
+            document.getElementById('cityResults').innerHTML = '';
+        }
+
+        function removeFromItinerary(cityID) {
+            itinerary = itinerary.filter(s => s.cityID !== cityID);
+            updateItineraryDisplay();
+        }
+
+        function updateStopTime(cityID, field, value) {
+            var stop = itinerary.find(s => s.cityID === cityID);
+            if (stop) {
+                stop[field] = value;
+            }
+        }
+
+        function moveStop(cityID, direction) {
+            var index = itinerary.findIndex(s => s.cityID === cityID);
+            if (index === -1) return;
+
+            var newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= itinerary.length) return;
+
+            // Swap
+            var temp = itinerary[index];
+            itinerary[index] = itinerary[newIndex];
+            itinerary[newIndex] = temp;
+
+            updateItineraryDisplay();
+        }
+
+        function updateItineraryDisplay() {
+            var list = document.getElementById('itineraryList');
+            var emptyMsg = document.getElementById('emptyItinerary');
+            list.innerHTML = '';
+
+            if (itinerary.length === 0) {
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            emptyMsg.style.display = 'none';
+
+            itinerary.forEach(function(stop, index) {
+                var isFirst = index === 0;
+                var isLast = index === itinerary.length - 1;
+                var stopLabel = isFirst ? 'Start' : (isLast ? 'End' : 'Stop ' + index);
+
+                var item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.draggable = true;
+                item.dataset.cityId = stop.cityID;
+
+                item.innerHTML = 
+                    '<div class="d-flex justify-content-between align-items-start">' +
+                        '<div class="flex-grow-1">' +
+                            '<div class="d-flex align-items-center mb-2">' +
+                                '<span class="badge bg-secondary me-2">' + (index + 1) + '</span>' +
+                                '<strong>' + stop.cityName + '</strong>' +
+                                '<small class="text-muted ms-2">(' + stopLabel + ')</small>' +
+                            '</div>' +
+                            '<div class="row g-2">' +
+                                '<div class="col-md-6">' +
+                                    '<label class="form-label small">Min. Arrival Time</label>' +
+                                    '<input type="datetime-local" class="form-control form-control-sm" ' +
+                                        'value="' + stop.minArrivalTime + '" ' +
+                                        'onchange="updateStopTime(' + stop.cityID + ', \'minArrivalTime\', this.value)" />' +
+                                '</div>' +
+                                '<div class="col-md-6">' +
+                                    '<label class="form-label small">Max Delay (hours)</label>' +
+                                    '<input type="number" class="form-control form-control-sm" min="0" step="0.25" ' +
+                                        'value="' + stop.maximalDelay + '" ' +
+                                        'onchange="updateStopTime(' + stop.cityID + ', \'maximalDelay\', this.value)" />' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="btn-group-vertical ms-2">' +
+                            '<button type="button" class="btn btn-outline-secondary btn-sm" ' +
+                                (isFirst ? 'disabled' : '') + ' onclick="moveStop(' + stop.cityID + ', \'up\')">&uarr;</button>' +
+                            '<button type="button" class="btn btn-outline-secondary btn-sm" ' +
+                                (isLast ? 'disabled' : '') + ' onclick="moveStop(' + stop.cityID + ', \'down\')">&darr;</button>' +
+                            '<button type="button" class="btn btn-outline-danger btn-sm" onclick="removeFromItinerary(' + stop.cityID + ')">&times;</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<input type="hidden" name="Stops[' + index + '].CityID" value="' + stop.cityID + '" />' +
+                    '<input type="hidden" name="Stops[' + index + '].StopOrder" value="' + (index + 1) + '" />' +
+                    '<input type="hidden" name="Stops[' + index + '].MinArrivalTime" value="' + stop.minArrivalTime + '" />' +
+                    '<input type="hidden" name="Stops[' + index + '].MaximalDelay" value="' + stop.maximalDelay + '" />';
+
+                // Drag and drop events
+                item.ondragstart = function(e) {
+                    draggedItem = this;
+                    this.classList.add('dragging');
+                };
+                item.ondragend = function(e) {
+                    this.classList.remove('dragging');
+                    draggedItem = null;
+                };
+                item.ondragover = function(e) {
+                    e.preventDefault();
+                    if (draggedItem && draggedItem !== this) {
+                        this.classList.add('drag-over');
+                    }
+                };
+                item.ondragleave = function(e) {
+                    this.classList.remove('drag-over');
+                };
+                item.ondrop = function(e) {
+                    e.preventDefault();
+                    this.classList.remove('drag-over');
+                    if (draggedItem && draggedItem !== this) {
+                        var fromId = parseInt(draggedItem.dataset.cityId);
+                        var toId = parseInt(this.dataset.cityId);
+                        reorderItinerary(fromId, toId);
+                    }
+                };
+
+                list.appendChild(item);
+            });
+        }
+
+        function reorderItinerary(fromCityId, toCityId) {
+            var fromIndex = itinerary.findIndex(s => s.cityID === fromCityId);
+            var toIndex = itinerary.findIndex(s => s.cityID === toCityId);
+            
+            if (fromIndex === -1 || toIndex === -1) return;
+
+            var item = itinerary.splice(fromIndex, 1)[0];
+            itinerary.splice(toIndex, 0, item);
+            
+            updateItineraryDisplay();
+        }
+    </script>
+    <style>
+        .list-group-item.dragging {
+            opacity: 0.5;
+        }
+        .list-group-item.drag-over {
+            border: 2px dashed #0d6efd;
+        }
+        #itineraryList .list-group-item {
+            cursor: grab;
+        }
+        #itineraryList .list-group-item:active {
+            cursor: grabbing;
+        }
+    </style>
+}
+                    
+                    

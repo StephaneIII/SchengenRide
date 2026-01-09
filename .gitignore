@@ -1,0 +1,73 @@
+# Build results
+bin/
+obj/
+out/
+
+# Visual Studio temporary files
+.vs/
+*.user
+*.suo
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.userprefs
+.DS_Store
+
+# NuGet Packages
+*.nupkg
+packages/
+
+# MSBuild Binary and Structured Log
+*.binlog
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+
+# Configuration files with sensitive data
+appsettings.json
+appsettings.*.json
+!appsettings.Development.json.template
+
+# StyleCop
+StyleCopReport.xml
+
+# Files built by Visual Studio
+*.obj
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+*.dll
+*.lib
+*.sbr
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

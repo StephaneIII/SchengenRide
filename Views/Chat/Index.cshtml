@@ -1,0 +1,110 @@
+@model List<SamkørselApp.Model.ConversationSummary>
+@{
+    ViewData["Title"] = "Messages";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="me-2" viewBox="0 0 16 16">
+                        <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                    </svg>
+                    Messages
+                </h2>
+            </div>
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">@TempData["Error"]</div>
+            }
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success">@TempData["Success"]</div>
+            }
+
+            @if (Model == null || Model.Count == 0)
+            {
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="text-muted mb-3" viewBox="0 0 16 16">
+                            <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                        </svg>
+                        <h5 class="text-muted">No conversations yet</h5>
+                        <p class="text-muted mb-0">When you book a ride or receive a booking request, you can chat with the other party here.</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var conversation in Model)
+                    {
+                        <a asp-action="Conversation" asp-route-id="@conversation.ConversationId" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between align-items-start">
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px; font-size: 1.2rem;">
+                                        @(conversation.ParticipantName.Length > 0 ? conversation.ParticipantName[0].ToString().ToUpper() : "?")
+                                    </div>
+                                    <div>
+                                        <h5 class="mb-1">@conversation.ParticipantName</h5>
+                                        @if (!string.IsNullOrEmpty(conversation.Title))
+                                        {
+                                            <small class="text-muted d-block">@conversation.Title</small>
+                                        }
+                                        <p class="mb-0 text-muted text-truncate" style="max-width: 400px;">
+                                            @if (!string.IsNullOrEmpty(conversation.LastMessage))
+                                            {
+                                                @(conversation.LastMessage.Length > 60 ? conversation.LastMessage.Substring(0, 60) + "..." : conversation.LastMessage)
+                                            }
+                                            else
+                                            {
+                                                <em>No messages yet</em>
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted">
+                                        @if (conversation.LastUpdated != DateTime.MinValue)
+                                        {
+                                            @if (conversation.LastUpdated.Date == DateTime.Today)
+                                            {
+                                                @conversation.LastUpdated.ToString("HH:mm")
+                                            }
+                                            else if (conversation.LastUpdated.Date == DateTime.Today.AddDays(-1))
+                                            {
+                                                <text>Yesterday</text>
+                                            }
+                                            else
+                                            {
+                                                @conversation.LastUpdated.ToString("dd MMM")
+                                            }
+                                        }
+                                    </small>
+                                    @if (conversation.RouteID > 0)
+                                    {
+                                        <div class="mt-1">
+                                            <span class="badge bg-info">Route #@conversation.RouteID</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .list-group-item-action:focus {
+        background-color: #e9ecef;
+    }
+</style>

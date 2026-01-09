@@ -1,0 +1,371 @@
+@{
+    ViewData["Title"] = "Route Information";
+    var route = ViewBag.Route as SamkørselApp.Model.Route;
+    var driver = ViewBag.Driver as SamkørselApp.Model.User;
+    var vehicle = ViewBag.Vehicle as SamkørselApp.Model.Vehicle;
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="display-6">Route Information</h1>
+                <a href="@Url.Action("Index", "Route")" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Routes
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @if (route != null)
+    {
+        <div class="row">
+            <!-- Route Details Card -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-route"></i> Route Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="route-info">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-success fs-6">@route.Status</span>
+                                    <span class="text-muted">#@route.RouteID</span>
+                                </div>
+                            </div>
+                            
+                            <div class="route-path mb-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="text-center">
+                                        <div class="route-point start-point"></div>
+                                        <small class="text-muted">Start</small>
+                                    </div>
+                                    <div class="flex-grow-1 mx-3">
+                                        <div class="route-line"></div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="route-point end-point"></div>
+                                        <small class="text-muted">End</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between mt-2">
+                                    <strong>@route.StartCity?.CityName</strong>
+                                    <strong>@route.EndCity?.CityName</strong>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Departure:</strong><br>
+                                    <span class="text-primary">@route.Departure.ToString("dddd, MMMM dd, yyyy")</span><br>
+                                    <span class="fs-4 text-primary">@route.Departure.ToString("HH:mm")</span>
+                                </div>
+                                @if (route.Arrival.HasValue)
+                                {
+                                    <div class="col-6">
+                                        <strong>Arrival:</strong><br>
+                                        <span class="text-success">@route.Arrival.Value.ToString("dddd, MMMM dd, yyyy")</span><br>
+                                        <span class="fs-4 text-success">@route.Arrival.Value.ToString("HH:mm")</span>
+                                    </div>
+                                }
+                            </div>
+
+                            <hr>
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Available Seats:</strong><br>
+                                    <span class="badge bg-info fs-6">@route.AvailableSeats seats</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Price per Seat:</strong><br>
+                                    <span class="fs-4 text-success">€@route.PricePerSeat.ToString("0.00")</span>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(route.Description))
+                            {
+                                <hr>
+                                <div>
+                                    <strong>Description:</strong><br>
+                                    <p class="text-muted">@route.Description</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Driver Information Card -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user"></i> Driver Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (driver != null)
+                        {
+                            <div class="driver-info">
+                                <div class="d-flex align-items-center mb-3">
+                                    @if (!string.IsNullOrEmpty(driver.ProfilePictureURL))
+                                    {
+                                        <img src="@driver.ProfilePictureURL" alt="Profile" class="rounded-circle me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                    }
+                                    else
+                                    {
+                                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
+                                            <i class="fas fa-user fa-lg"></i>
+                                        </div>
+                                    }
+                                    <div>
+                                        <h6 class="mb-0">@driver.UserName</h6>
+                                        @if (driver.Rating.HasValue)
+                                        {
+                                            <div class="text-warning">
+                                                @for (int i = 1; i <= 5; i++)
+                                                {
+                                                    @if (i <= driver.Rating.Value)
+                                                    {
+                                                        <i class="fas fa-star"></i>
+                                                    }
+                                                    else if (i - 0.5 <= driver.Rating.Value)
+                                                    {
+                                                        <i class="fas fa-star-half-alt"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="far fa-star"></i>
+                                                    }
+                                                }
+                                                <span class="text-muted ms-1">(@driver.Rating.Value.ToString("0.0"))</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="mb-2">
+                                    <i class="fas fa-envelope text-muted"></i>
+                                    <strong>Email:</strong> @driver.Email
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(driver.Phone))
+                                {
+                                    <div class="mb-2">
+                                        <i class="fas fa-phone text-muted"></i>
+                                        <strong>Phone:</strong> @driver.Phone
+                                    </div>
+                                }
+
+                                <div class="mb-2">
+                                    <i class="fas fa-calendar text-muted"></i>
+                                    <strong>Member since:</strong> @driver.JoinDate.ToString("MMMM yyyy")
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Vehicle Information Card -->
+            @if (vehicle != null)
+            {
+                <div class="col-lg-6 col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-car"></i> Vehicle Information
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="vehicle-info">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <strong>Brand & Model:</strong><br>
+                                        <span class="fs-5">@vehicle.Brand @vehicle.Model</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <strong>Color:</strong><br>
+                                        <span class="badge bg-secondary">@vehicle.Color</span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <strong>Plate Number:</strong><br>
+                                        <span class="font-monospace fs-5">@vehicle.PlateNumber</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <strong>Comfort Level:</strong><br>
+                                        @switch (vehicle.ComfortLevel?.ToLower())
+                                        {
+                                            case "high":
+                                                <span class="badge bg-success">@vehicle.ComfortLevel</span>
+                                                break;
+                                            case "medium":
+                                                <span class="badge bg-warning text-dark">@vehicle.ComfortLevel</span>
+                                                break;
+                                            case "low":
+                                                <span class="badge bg-danger">@vehicle.ComfortLevel</span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-secondary">@vehicle.ComfortLevel</span>
+                                                break;
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Itinerary Card -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-map-marked-alt"></i> Route Itinerary
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (route.Itineraries != null && route.Itineraries.Any())
+                        {
+                            <div class="itinerary-timeline">
+                                @for (int i = 0; i < route.Itineraries.Count; i++)
+                                {
+                                    var stop = route.Itineraries[i];
+                                    <div class="timeline-item @(i == route.Itineraries.Count - 1 ? "last" : "")">
+                                        <div class="timeline-marker">
+                                            @if (i == 0)
+                                            {
+                                                <i class="fas fa-play text-success"></i>
+                                            }
+                                            else if (i == route.Itineraries.Count - 1)
+                                            {
+                                                <i class="fas fa-flag text-danger"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-circle text-primary"></i>
+                                            }
+                                        </div>
+                                        <div class="timeline-content">
+                                            <h6 class="mb-1">@stop.City.CityName</h6>
+                                            <small class="text-muted">Stop #@stop.StopOrder</small>
+                                            @if (stop.MinArrivalTime.HasValue)
+                                            {
+                                                <div class="mt-1">
+                                                    <small class="text-primary">
+                                                        <i class="fas fa-clock"></i> @stop.MinArrivalTime.Value.ToString("HH:mm")
+                                                    </small>
+                                                </div>
+                                            }
+                                            @if (stop.MaximalDelay.HasValue)
+                                            {
+                                                <div>
+                                                    <small class="text-warning">
+                                                        <i class="fas fa-exclamation-triangle"></i> Max delay: @stop.MaximalDelay.Value min
+                                                    </small>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No itinerary details available.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <a href="@Url.Action("Book", "Booking", new { routeId = route.RouteID })" class="btn btn-primary btn-lg me-3">
+                            <i class="fas fa-ticket-alt"></i> Book This Route
+                        </a>
+                        <a href="@Url.Action("Index", "Chat", new { routeId = route.RouteID })" class="btn btn-outline-info">
+                            <i class="fas fa-comments"></i> Contact Driver
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-danger text-center">
+            <i class="fas fa-exclamation-triangle"></i>
+            Route information could not be loaded.
+        </div>
+    }
+</div>
+
+<style>
+    .route-point {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin: 0 auto;
+    }
+    
+    .start-point {
+        background-color: #28a745;
+    }
+    
+    .end-point {
+        background-color: #dc3545;
+    }
+    
+    .route-line {
+        height: 2px;
+        background: linear-gradient(to right, #28a745, #dc3545);
+        position: relative;
+    }
+
+    .timeline-item {
+        display: flex;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    
+    .timeline-item:not(.last):after {
+        content: '';
+        position: absolute;
+        left: 11px;
+        top: 24px;
+        width: 2px;
+        height: calc(100% + 1rem);
+        background-color: #dee2e6;
+    }
+    
+    .timeline-marker {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        border: 2px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .timeline-content {
+        flex-grow: 1;
+    }
+</style>

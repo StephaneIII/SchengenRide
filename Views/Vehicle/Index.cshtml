@@ -1,0 +1,52 @@
+@{
+    ViewData["Title"] = "VehicleGeneration";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2 class="text-center mb-4">Car Generation</h2>
+            
+            @if (ViewBag.Error != null)
+            {
+                <div class="alert alert-danger">@ViewBag.Error</div>
+            }
+            
+            <form method="post" asp-controller="Vehicle" asp-action="Index">
+                <div class="mb-3">
+                    <label for="PlateNumber" class="form-label">Registration Plate Number</label>
+                    <input type="text" class="form-control" id="PlateNumber" name="PlateNumber" required maxlength="20">
+                </div>
+
+                
+                <div class="mb-3">
+                    <label for="Brand" class="form-label">Brand</label>
+                    <input type="text" class="form-control" id="Brand" name="Brand" required maxlength="100">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="Model" class="form-label">Model</label>
+                    <input type="text" class="form-control" id="Model" name="Model" maxlength="100">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="Color" class="form-label">Color</label>
+                    <input type="text" class="form-control" id="Color" name="Color" maxlength="100">
+                </div>
+                <div class="mb-3">
+                    <label for="ComfortLevel" class="form-label">ComfortLevel</label>
+                    <input type="number" class="form-control" id="ComfortLevel" name="ComfortLevel" min="1" max="10">
+                </div>
+                                
+                <div class="mb-3">
+                    <label for="Password" class="form-label">User Password</label>
+                    <input type="password" class="form-control" id="Password" name="Password" required maxlength="20">
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">Generate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,24 @@
+﻿@page
+@model MyWebApp.Pages.IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <div
+    <h1 class="display-4" style="text-align: center;">SchengenRide</h1>
+    
+    <div class="mt-4">
+        <a asp-controller="Vehicle" asp-action="Index" class="btn btn-primary">
+            Register Vehicle
+        </a>
+
+        <a asp-controller="Booking" asp-action="Book" class="btn btn-primary">
+            Book a Ride
+        </a>
+
+        <a asp-controller="Booking" asp-action="MyBookings" class="btn btn-primary">
+            My Bookings
+        </a>
+    </div>
+</div>

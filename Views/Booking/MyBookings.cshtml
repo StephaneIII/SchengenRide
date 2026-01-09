@@ -1,0 +1,150 @@
+@model List<SamkørselApp.Controllers.BookingViewModel>
+@{
+    ViewData["Title"] = "My Bookings";
+}
+
+<div class="container mt-4">
+    <h2>My Bookings</h2>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <div class="alert alert-info">
+            You haven't made any bookings yet. 
+            <a asp-action="Index">Browse available routes</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Booking #</th>
+                        <th>Route</th>
+                        <th>Departure</th>
+                        <th>Driver</th>
+                        <th>Seats</th>
+                        <th>Price Paid</th>
+                        <th>Status</th>
+                        <th>Booked On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var booking in Model)
+                    {
+                        <tr>
+                            <td>#@booking.BookingID</td>
+                            <td><strong>@booking.StartCity</strong> → <strong>@booking.EndCity</strong></td>
+                            <td>@booking.Departure.ToString("dd MMM yyyy, HH:mm")</td>
+                            <td>@booking.DriverName</td>
+                            <td>@booking.SeatsBooked</td>
+                            <td>€@booking.PricePaid.ToString("F2")</td>
+                            <td>
+                                @if (booking.Status == "Confirmed")
+                                {
+                                    <span class="badge bg-success">@booking.Status</span>
+                                }
+                                else if (booking.Status == "Pending")
+                                {
+                                    <span class="badge bg-warning text-dark">@booking.Status</span>
+                                }
+                                else if (booking.Status == "Rejected")
+                                {
+                                    <span class="badge bg-danger">@booking.Status</span>
+                                }
+                                else if (booking.Status == "Cancelled")
+                                {
+                                    <span class="badge bg-secondary">@booking.Status</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@booking.Status</span>
+                                }
+                            </td>
+                            <td>@booking.BookingDate.ToString("dd MMM yyyy")</td>
+                            <td>
+                                @if (booking.Status == "Pending" || booking.Status == "Confirmed")
+                                {
+                                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#cancelModal" 
+                                            data-booking-id="@booking.BookingID"
+                                            data-route="@booking.StartCity → @booking.EndCity"
+                                            title="Cancel Booking">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                            <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                        </svg>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <div class="mt-3">
+        <a asp-action="Index" class="btn btn-primary">Browse More Routes</a>
+    </div>
+</div>
+
+<!-- Cancel Booking Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="CancelBooking" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cancelModalLabel">Cancel Booking</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modalBookingId" name="bookingId" />
+                    <p>You are about to cancel your booking for: <strong><span id="modalRoute"></span></strong></p>
+                    <div class="mb-3">
+                        <label for="cancellationReason" class="form-label">Please provide a reason for cancellation:</label>
+                        <textarea class="form-control" id="cancellationReason" name="cancellationReason" 
+                                  rows="3" placeholder="e.g., Change of plans, found alternative transport, etc."
+                                  required maxlength="500"></textarea>
+                        <div class="form-text">This message will be sent to the driver.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Booking</button>
+                    <button type="submit" class="btn btn-danger">Cancel Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle cancel modal data
+    document.addEventListener('DOMContentLoaded', function() {
+        const cancelModal = document.getElementById('cancelModal');
+        cancelModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const bookingId = button.getAttribute('data-booking-id');
+            const route = button.getAttribute('data-route');
+            
+            document.getElementById('modalBookingId').value = bookingId;
+            document.getElementById('modalRoute').textContent = route;
+            document.getElementById('cancellationReason').value = '';
+        });
+    });
+</script>
