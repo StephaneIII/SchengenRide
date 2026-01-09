@@ -178,7 +178,7 @@ namespace MyWebApp.Controllers
                 addUser2Command.ExecuteNonQuery();
 
                 // Send initial automated message
-                string initialMessage = "Hej! En samtale er blevet oprettet automatisk for jeres samkørsel. God tur! 🚗";
+                string initialMessage = "Hi! A conversation has been automatically created for your ride. Have a nice trip! 🚗";
                 
                 string insertMessageQuery = @"
                     INSERT INTO Message (ConversationID, SenderID, MessageContent)
