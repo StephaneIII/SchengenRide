@@ -46,7 +46,7 @@ namespace SamkørselApp.Controllers
                     SELECT r.RouteID, r.UID, u.UserName AS DriverName, 
                            sc.CityName AS StartCity, ec.CityName AS EndCity, 
                            r.Departure, r.Arrival, r.AvailableSeats, r.PricePerSeat, 
-                           r.Description, r.Status, 
+                           r.Description, r.Status, r.DistanceKm, r.ExpectedTravelTimeMinutes,
                            ISNULL(v.Brand + ' ' + v.Model, 'Not specified') AS VehicleName,
                            v.ComfortLevel,
                            ISNULL(SUM(CAST(b.SeatsBooked AS INT)), 0) AS BookedSeats
@@ -97,11 +97,37 @@ namespace SamkørselApp.Controllers
                             parameters.Add(new SqlParameter("@MinComfortLevel", comfortLevelInt.Value));
                         }
                     }
+
+                    // Timespan filters
+                    if (criteria.EarliestDeparture.HasValue)
+                    {
+                        query += " AND r.Departure >= @EarliestDeparture";
+                        parameters.Add(new SqlParameter("@EarliestDeparture", criteria.EarliestDeparture.Value));
+                    }
+
+                    if (criteria.LatestDeparture.HasValue)
+                    {
+                        query += " AND r.Departure <= @LatestDeparture";
+                        parameters.Add(new SqlParameter("@LatestDeparture", criteria.LatestDeparture.Value));
+                    }
+
+                    // Time of day filters
+                    if (criteria.EarliestDepartureTime.HasValue)
+                    {
+                        query += " AND CAST(r.Departure AS TIME) >= @EarliestDepartureTime";
+                        parameters.Add(new SqlParameter("@EarliestDepartureTime", criteria.EarliestDepartureTime.Value));
+                    }
+
+                    if (criteria.LatestDepartureTime.HasValue)
+                    {
+                        query += " AND CAST(r.Departure AS TIME) <= @LatestDepartureTime";
+                        parameters.Add(new SqlParameter("@LatestDepartureTime", criteria.LatestDepartureTime.Value));
+                    }
                 }
 
                 query += @" GROUP BY r.RouteID, r.UID, u.UserName, sc.CityName, ec.CityName, 
                             r.Departure, r.Arrival, r.AvailableSeats, r.PricePerSeat, 
-                            r.Description, r.Status, v.Brand, v.Model, v.ComfortLevel
+                            r.Description, r.Status, r.DistanceKm, r.ExpectedTravelTimeMinutes, v.Brand, v.Model, v.ComfortLevel
                             HAVING r.AvailableSeats - ISNULL(SUM(b.SeatsBooked), 0) > 0";
 
                 // Filter by minimum available seats if specified
@@ -144,7 +170,9 @@ namespace SamkørselApp.Controllers
                         PricePerSeat = (decimal)reader["PricePerSeat"],
                         Description = reader["Description"]?.ToString(),
                         VehicleName = reader["VehicleName"]?.ToString() ?? "Not specified",
-                        ComfortLevel = comfortLevel
+                        ComfortLevel = comfortLevel,
+                        DistanceKm = reader["DistanceKm"] == DBNull.Value ? (decimal?)null : (decimal)reader["DistanceKm"],
+                        ExpectedTravelTimeMinutes = reader["ExpectedTravelTimeMinutes"] == DBNull.Value ? (int?)null : (int)reader["ExpectedTravelTimeMinutes"]
                     };
 
                     availableRoutes.Add(routeViewModel);
@@ -444,6 +472,8 @@ namespace SamkørselApp.Controllers
                         r.AvailableSeats,
                         r.PricePerSeat,
                         r.Description,
+                        r.DistanceKm,
+                        r.ExpectedTravelTimeMinutes,
                         CASE 
                             WHEN v.Brand IS NOT NULL AND v.Model IS NOT NULL 
                             THEN v.Brand + ' ' + v.Model 
@@ -482,7 +512,9 @@ namespace SamkørselApp.Controllers
                             PricePerSeat = (decimal)reader["PricePerSeat"],
                             Description = reader["Description"]?.ToString(),
                             VehicleName = reader["VehicleName"]?.ToString() ?? "Not specified",
-                            ComfortLevel = comfortLevel
+                            ComfortLevel = comfortLevel,
+                            DistanceKm = reader["DistanceKm"] == DBNull.Value ? (decimal?)null : (decimal)reader["DistanceKm"],
+                            ExpectedTravelTimeMinutes = reader["ExpectedTravelTimeMinutes"] == DBNull.Value ? (int?)null : (int)reader["ExpectedTravelTimeMinutes"]
                         };
                     }
                 }
@@ -792,6 +824,8 @@ namespace SamkørselApp.Controllers
         public string? Description { get; set; }
         public string VehicleName { get; set; } = "";
         public string ComfortLevel { get; set; } = "Standard";
+        public decimal? DistanceKm { get; set; }
+        public int? ExpectedTravelTimeMinutes { get; set; }
         public List<string> RouteStops { get; set; } = new List<string>();
     }
 
@@ -805,6 +839,12 @@ namespace SamkørselApp.Controllers
         public string? MinComfortLevel { get; set; }
         public int? MinAvailableSeats { get; set; }
         public string? RouteStops { get; set; } // For searching in route stops
+        
+        // Timespan filters
+        public DateTime? EarliestDeparture { get; set; }
+        public DateTime? LatestDeparture { get; set; }
+        public TimeSpan? EarliestDepartureTime { get; set; } // Time of day filter
+        public TimeSpan? LatestDepartureTime { get; set; } // Time of day filter
     }
 
     // ViewModel for displaying bookings

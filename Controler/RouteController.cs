@@ -91,9 +91,9 @@ namespace SamkørselApp.Controllers
                 {
                     // 1. Insert the Route
                     string routeQuery = @"
-                        INSERT INTO Route (UID, StartCityID, EndCityID, Departure, Arrival, AvailableSeats, PricePerSeat, VehicleID, Description, Status)
+                        INSERT INTO Route (UID, StartCityID, EndCityID, Departure, Arrival, AvailableSeats, PricePerSeat, VehicleID, Description, Status, DistanceKm, ExpectedTravelTimeMinutes)
                         OUTPUT INSERTED.RouteID
-                        VALUES (@UID, @StartCityID, @EndCityID, @Departure, @Arrival, @AvailableSeats, @PricePerSeat, @VehicleID, @Description, @Status)";
+                        VALUES (@UID, @StartCityID, @EndCityID, @Departure, @Arrival, @AvailableSeats, @PricePerSeat, @VehicleID, @Description, @Status, @DistanceKm, @ExpectedTravelTimeMinutes)";
 
                     using (SqlCommand routeCommand = new SqlCommand(routeQuery, connection, transaction))
                     {
@@ -107,6 +107,8 @@ namespace SamkørselApp.Controllers
                         routeCommand.Parameters.AddWithValue("@VehicleID", VehicleId);
                         routeCommand.Parameters.AddWithValue("@Description", (object?)Description ?? DBNull.Value);
                         routeCommand.Parameters.AddWithValue("@Status", "Active");
+                        routeCommand.Parameters.AddWithValue("@DistanceKm", DBNull.Value); // Will be populated later via TomTom API
+                        routeCommand.Parameters.AddWithValue("@ExpectedTravelTimeMinutes", DBNull.Value); // Will be populated later via TomTom API
 
                         routeID = (int)routeCommand.ExecuteScalar();
                     }
@@ -188,6 +190,7 @@ namespace SamkørselApp.Controllers
                     string routeQuery = @"
                         SELECT r.RouteID, r.UID, r.StartCityID, r.EndCityID, r.Departure, r.Arrival, 
                                r.AvailableSeats, r.PricePerSeat, r.VehicleID, r.Description, r.Status,
+                               r.DistanceKm, r.ExpectedTravelTimeMinutes,
                                sc.CityName as StartCityName, sc.CityXCoord as StartCityX, sc.CityYCoord as StartCityY,
                                ec.CityName as EndCityName, ec.CityXCoord as EndCityX, ec.CityYCoord as EndCityY,
                                u.UserName, u.Email, u.Phone, u.ProfilePictureURL, u.Rating, u.JoinDate
@@ -235,7 +238,6 @@ namespace SamkørselApp.Controllers
                                     reader["JoinDate"] != DBNull.Value ? (DateTime)reader["JoinDate"] : DateTime.Now
                                 );
 
-                                // Create route (will add itineraries below)
                                 route = new RouteModel(
                                     (int)reader["RouteID"],
                                     (int)reader["UID"],
@@ -250,6 +252,8 @@ namespace SamkørselApp.Controllers
                                     reader["VehicleID"] != DBNull.Value ? (int?)reader["VehicleID"] : null,
                                     reader["Description"]?.ToString(),
                                     reader["Status"]?.ToString() ?? "Active",
+                                    reader["DistanceKm"] != DBNull.Value ? (decimal?)reader["DistanceKm"] : null,
+                                    reader["ExpectedTravelTimeMinutes"] != DBNull.Value ? (int?)reader["ExpectedTravelTimeMinutes"] : null,
                                     new List<Itinerary>()
                                 );
                             }

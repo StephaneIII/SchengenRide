@@ -98,6 +98,44 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="EarliestDeparture" class="form-label">Earliest Departure Date</label>
+                            <input type="date" class="form-control" name="EarliestDeparture" 
+                                   value="@(searchCriteria?.EarliestDeparture?.ToString("yyyy-MM-dd"))" 
+                                   min="@DateTime.Today.ToString("yyyy-MM-dd")">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="LatestDeparture" class="form-label">Latest Departure Date</label>
+                            <input type="date" class="form-control" name="LatestDeparture" 
+                                   value="@(searchCriteria?.LatestDeparture?.ToString("yyyy-MM-dd"))" 
+                                   min="@DateTime.Today.ToString("yyyy-MM-dd")">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="EarliestDepartureTime" class="form-label">Earliest Departure Time</label>
+                            <input type="time" class="form-control" name="EarliestDepartureTime" 
+                                   value="@(searchCriteria?.EarliestDepartureTime?.ToString(@"hh\:mm"))" 
+                                   placeholder="HH:MM">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="LatestDepartureTime" class="form-label">Latest Departure Time</label>
+                            <input type="time" class="form-control" name="LatestDepartureTime" 
+                                   value="@(searchCriteria?.LatestDepartureTime?.ToString(@"hh\:mm"))" 
+                                   placeholder="HH:MM">
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="row">
                     <div class="col-md-12">
                         <div class="d-flex gap-2">
@@ -162,6 +200,27 @@
                                 <strong>Comfort:</strong> 
                                 <span class="badge bg-info">@route.ComfortLevel</span>
                             </p>
+                            @if (route.DistanceKm.HasValue)
+                            {
+                                <p class="mb-2">
+                                    <i class="bi bi-signpost"></i>
+                                    <strong>Distance:</strong> 
+                                    <span class="badge bg-secondary">@route.DistanceKm.Value.ToString("0.0") km</span>
+                                    @if (route.ExpectedTravelTimeMinutes.HasValue)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1">
+                                            @if (route.ExpectedTravelTimeMinutes.Value >= 60)
+                                            {
+                                                @((route.ExpectedTravelTimeMinutes.Value / 60).ToString("0"))<text>h </text>@((route.ExpectedTravelTimeMinutes.Value % 60).ToString("0"))<text>min</text>
+                                            }
+                                            else
+                                            {
+                                                @(route.ExpectedTravelTimeMinutes.Value.ToString("0"))<text>min</text>
+                                            }
+                                        </span>
+                                    }
+                                </p>
+                            }
                             @if (route.RouteStops.Any())
                             {
                                 <p class="mb-2">

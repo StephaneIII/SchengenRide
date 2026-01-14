@@ -14,10 +14,10 @@ namespace SamkørselApp.Model
         public decimal PricePerSeat { get; set; }
         public int? VehicleID { get; set; }
         public string? Description { get; set; }
-        public string Status { get; set; }
-        public List<Itinerary> Itineraries { get; set; }
+        public string Status { get; set; }        public decimal? DistanceKm { get; set; }
+        public int? ExpectedTravelTimeMinutes { get; set; }        public List<Itinerary> Itineraries { get; set; }
 
-        public Route(int routeID, int uid, int startCityID, City startCity, int endCityID, City endCity, DateTime departure, DateTime? arrival, int availableSeats, decimal pricePerSeat, int? vehicleID, string? description, string status, List<Itinerary> itineraries)
+        public Route(int routeID, int uid, int startCityID, City startCity, int endCityID, City endCity, DateTime departure, DateTime? arrival, int availableSeats, decimal pricePerSeat, int? vehicleID, string? description, string status, decimal? distanceKm, int? expectedTravelTimeMinutes, List<Itinerary> itineraries)
         {
             RouteID = routeID;
             UID = uid;
@@ -32,6 +32,8 @@ namespace SamkørselApp.Model
             VehicleID = vehicleID;
             Description = description;
             Status = status;
+            DistanceKm = distanceKm;
+            ExpectedTravelTimeMinutes = expectedTravelTimeMinutes;
             Itineraries = itineraries;
         }
 

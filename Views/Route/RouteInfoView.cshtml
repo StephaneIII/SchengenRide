@@ -86,6 +86,39 @@
                                 </div>
                             </div>
 
+                            @if (route.DistanceKm.HasValue || route.ExpectedTravelTimeMinutes.HasValue)
+                            {
+                                <hr>
+                                <div class="row">
+                                    @if (route.DistanceKm.HasValue)
+                                    {
+                                        <div class="col-6">
+                                            <strong>Distance:</strong><br>
+                                            <span class="badge bg-secondary fs-6">
+                                                <i class="fas fa-road"></i> @route.DistanceKm.Value.ToString("0.0") km
+                                            </span>
+                                        </div>
+                                    }
+                                    @if (route.ExpectedTravelTimeMinutes.HasValue)
+                                    {
+                                        <div class="col-6">
+                                            <strong>Estimated Duration:</strong><br>
+                                            <span class="badge bg-warning text-dark fs-6">
+                                                <i class="fas fa-clock"></i> 
+                                                @if (route.ExpectedTravelTimeMinutes.Value >= 60)
+                                                {
+                                                    @((route.ExpectedTravelTimeMinutes.Value / 60).ToString("0"))<text>h </text>@((route.ExpectedTravelTimeMinutes.Value % 60).ToString("0"))<text>min</text>
+                                                }
+                                                else
+                                                {
+                                                    @(route.ExpectedTravelTimeMinutes.Value.ToString("0"))<text>min</text>
+                                                }
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
                             @if (!string.IsNullOrEmpty(route.Description))
                             {
                                 <hr>
