@@ -66,7 +66,12 @@
 
                             <!-- Itinerary list -->
                             <div class="mb-4">
-                                <h6>Your Itinerary <small class="text-muted">(drag to reorder)</small></h6>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Your Itinerary <small class="text-muted">(drag to reorder)</small></h6>
+                                    <button type="button" id="autoTimeBtn" class="btn btn-outline-primary btn-sm" onclick="calculateAutomaticTimes()" style="display: none;">
+                                        <i class="fas fa-clock"></i> Automatic Time Filling
+                                    </button>
+                                </div>
                                 <div id="itineraryList" class="list-group">
                                     <!-- Stops will be added here dynamically -->
                                 </div>
@@ -199,14 +204,17 @@
         function updateItineraryDisplay() {
             var list = document.getElementById('itineraryList');
             var emptyMsg = document.getElementById('emptyItinerary');
+            var autoTimeBtn = document.getElementById('autoTimeBtn');
             list.innerHTML = '';
 
             if (itinerary.length === 0) {
                 emptyMsg.style.display = 'block';
+                autoTimeBtn.style.display = 'none';
                 return;
             }
 
             emptyMsg.style.display = 'none';
+            autoTimeBtn.style.display = itinerary.length >= 2 ? 'inline-block' : 'none';
 
             itinerary.forEach(function(stop, index) {
                 var isFirst = index === 0;
@@ -230,13 +238,13 @@
                                 '<div class="col-md-6">' +
                                     '<label class="form-label small">Min. Arrival Time</label>' +
                                     '<input type="datetime-local" class="form-control form-control-sm" ' +
-                                        'value="' + stop.minArrivalTime + '" ' +
+                                        'value="' + (stop.minArrivalTime || '') + '" ' +
                                         'onchange="updateStopTime(' + stop.cityID + ', \'minArrivalTime\', this.value)" />' +
                                 '</div>' +
                                 '<div class="col-md-6">' +
                                     '<label class="form-label small">Max Delay (hours)</label>' +
                                     '<input type="number" class="form-control form-control-sm" min="0" step="0.25" ' +
-                                        'value="' + stop.maximalDelay + '" ' +
+                                        'value="' + (stop.maximalDelay || 0.25) + '" ' +
                                         'onchange="updateStopTime(' + stop.cityID + ', \'maximalDelay\', this.value)" />' +
                                 '</div>' +
                             '</div>' +
@@ -251,8 +259,8 @@
                     '</div>' +
                     '<input type="hidden" name="Stops[' + index + '].CityID" value="' + stop.cityID + '" />' +
                     '<input type="hidden" name="Stops[' + index + '].StopOrder" value="' + (index + 1) + '" />' +
-                    '<input type="hidden" name="Stops[' + index + '].MinArrivalTime" value="' + stop.minArrivalTime + '" />' +
-                    '<input type="hidden" name="Stops[' + index + '].MaximalDelay" value="' + stop.maximalDelay + '" />';
+                    '<input type="hidden" name="Stops[' + index + '].MinArrivalTime" value="' + (stop.minArrivalTime || '') + '" />' +
+                    '<input type="hidden" name="Stops[' + index + '].MaximalDelay" value="' + (stop.maximalDelay || 0.25) + '" />';
 
                 // Drag and drop events
                 item.ondragstart = function(e) {
@@ -296,6 +304,76 @@
             itinerary.splice(toIndex, 0, item);
             
             updateItineraryDisplay();
+        }
+
+        function calculateAutomaticTimes() {
+            if (itinerary.length < 2) {
+                alert('You need at least 2 cities to calculate automatic times.');
+                return;
+            }
+
+            // Get departure time from the form
+            var departureTime = document.getElementById('Departure').value;
+            if (!departureTime) {
+                alert('Please set a departure time first.');
+                return;
+            }
+
+            // Get arrival time from the form (optional)
+            var arrivalTime = document.getElementById('Arrival').value;
+
+            var autoTimeBtn = document.getElementById('autoTimeBtn');
+            autoTimeBtn.disabled = true;
+            autoTimeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+
+            var cityIds = itinerary.map(stop => stop.cityID);
+            var requestData = {
+                cityIds: cityIds,
+                startTime: departureTime,
+                endTime: arrivalTime
+            };
+
+            fetch('/Route/CalculateAutomaticTimes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Response from server:', data);
+                if (data.success) {
+                    // Update itinerary with calculated times
+                    data.results.forEach(result => {
+                        var stop = itinerary.find(s => s.cityID === result.cityId);
+                        if (stop) {
+                            console.log('Updating stop:', stop.cityName, 'with time:', result.minArrivalTime);
+                            // Always update the min arrival time, even for first stop
+                            stop.minArrivalTime = result.minArrivalTime || '';
+                        }
+                    });
+                    
+                    console.log('Updated itinerary:', itinerary);
+                    
+                    // Force update the display to show new times
+                    updateItineraryDisplay();
+                    
+                    // Show success message
+                    alert('Automatic times calculated and set successfully!');
+                } else {
+                    alert('Error calculating times: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error calculating automatic times. Please try again.');
+            })
+            .finally(() => {
+                autoTimeBtn.disabled = false;
+                autoTimeBtn.innerHTML = '<i class="fas fa-clock"></i> Automatic Time Filling';
+            });
         }
     </script>
     <style>

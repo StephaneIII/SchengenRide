@@ -8,12 +8,13 @@ namespace SamkørselApp.Model
         public string? LastMessage { get; set; }
         public DateTime LastUpdated { get; set; } = DateTime.MinValue;
         public int RouteID { get; set; }
+        public int UnreadCount { get; set; } = 0;
 
         public ConversationSummary()
         {
         }
 
-        public ConversationSummary(int conversationId, string participantName, string? title, string? lastMessage, DateTime lastUpdated, int routeID)
+        public ConversationSummary(int conversationId, string participantName, string? title, string? lastMessage, DateTime lastUpdated, int routeID, int unreadCount = 0)
         {
             ConversationId = conversationId;
             ParticipantName = participantName;
@@ -21,6 +22,7 @@ namespace SamkørselApp.Model
             LastMessage = lastMessage;
             LastUpdated = lastUpdated;
             RouteID = routeID;
+            UnreadCount = unreadCount;
         }
     }
 }

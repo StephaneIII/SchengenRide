@@ -330,6 +330,7 @@ namespace SamkørselApp.Controllers
             int driverId = 0;
             string driverName = "";
             string routeTitle = "";
+            int newBookingId = 0;
             
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
@@ -360,6 +361,7 @@ namespace SamkørselApp.Controllers
                 // Create the booking
                 string insertQuery = @"
                     INSERT INTO Booking (RouteID, PassengerID, Status, SeatsBooked, PricePaid)
+                    OUTPUT INSERTED.BookingID
                     VALUES (@RouteID, @PassengerID, @Status, @SeatsBooked, @PricePaid)";
 
                 using SqlCommand command = new SqlCommand(insertQuery, connection);
@@ -369,31 +371,61 @@ namespace SamkørselApp.Controllers
                 command.Parameters.AddWithValue("@SeatsBooked", seatsToBook);
                 command.Parameters.AddWithValue("@PricePaid", totalPrice);
 
-                command.ExecuteNonQuery();
+                newBookingId = (int)command.ExecuteScalar();
             }
 
-            // Create conversation between passenger and driver if it doesn't exist
+            // Create conversation between passenger and driver if it doesn't exist and send automatic booking message
             if (driverId > 0 && driverId != int.Parse(uid)) // Don't create conversation with yourself
             {
                 try
                 {
                     MyWebApp.Controllers.ChatController chatController = new MyWebApp.Controllers.ChatController();
-                    chatController.CreateConversationIfNotExists(
+                    int conversationId = chatController.CreateConversationIfNotExists(
                         int.Parse(uid), // passenger
                         driverId,       // driver
                         routeId,        // route
                         routeTitle      // conversation title
                     );
+
+                    // Send automatic booking confirmation message with booking ID
+                    string bookingMessage = $"🎯 New booking created!\n\n" +
+                                          $"Booking ID: #{newBookingId}\n" +
+                                          $"Seats requested: {seatsToBook}\n" +
+                                          $"Total price: €{totalPrice:F2}\n" +
+                                          $"Status: Pending driver approval\n\n" +
+                                          $"Driver will be notified to approve your booking. You can use this Booking ID for any questions about your trip.";
+
+                    SendAutomaticMessage(conversationId, int.Parse(uid), bookingMessage);
                 }
                 catch (Exception ex)
                 {
                     // Log error but don't fail the booking
-                    System.Diagnostics.Debug.WriteLine($"Failed to create conversation: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Failed to create conversation or send message: {ex.Message}");
                 }
             }
 
             TempData["Success"] = $"Booking request submitted! {seatsToBook} seat(s) requested for €{totalPrice:F2}. Waiting for driver approval.";
             return RedirectToAction("MyBookings");
+        }
+
+        // Helper method to send automatic messages
+        private void SendAutomaticMessage(int conversationId, int senderId, string message)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string insertMessageQuery = @"
+                    INSERT INTO Message (ConversationID, SenderID, MessageContent)
+                    VALUES (@ConversationID, @SenderID, @MessageContent)";
+
+                using SqlCommand command = new SqlCommand(insertMessageQuery, connection);
+                command.Parameters.AddWithValue("@ConversationID", conversationId);
+                command.Parameters.AddWithValue("@SenderID", senderId);
+                command.Parameters.AddWithValue("@MessageContent", message);
+
+                command.ExecuteNonQuery();
+            }
         }
 
         // View user's bookings
@@ -421,6 +453,8 @@ namespace SamkørselApp.Controllers
                         sc.CityName AS StartCity,
                         ec.CityName AS EndCity,
                         r.Departure,
+                        r.RouteID,
+                        r.UID AS DriverID,
                         u.UserName AS DriverName
                     FROM Booking b
                     INNER JOIN Route r ON b.RouteID = r.RouteID
@@ -446,12 +480,165 @@ namespace SamkørselApp.Controllers
                         StartCity = reader["StartCity"]?.ToString() ?? "",
                         EndCity = reader["EndCity"]?.ToString() ?? "",
                         Departure = (DateTime)reader["Departure"],
+                        RouteID = (int)reader["RouteID"],
+                        DriverID = (int)reader["DriverID"],
                         DriverName = reader["DriverName"]?.ToString() ?? ""
                     });
                 }
             }
 
             return View(bookings);
+        }
+
+        // Show review form for a completed booking
+        public IActionResult Review(int bookingId)
+        {
+            string? uid = HttpContext.Session.GetString("UID");
+            if (string.IsNullOrEmpty(uid))
+            {
+                return RedirectToAction("Index", "LogIn");
+            }
+
+            ReviewViewModel? reviewModel = GetReviewViewModel(bookingId, int.Parse(uid));
+            
+            if (reviewModel == null)
+            {
+                TempData["Error"] = "Booking not found or not eligible for review.";
+                return RedirectToAction("MyBookings");
+            }
+
+            return View(reviewModel);
+        }
+
+        // Process review submission
+        [HttpPost]
+        public IActionResult Review(ReviewViewModel model)
+        {
+            string? uid = HttpContext.Session.GetString("UID");
+            if (string.IsNullOrEmpty(uid))
+            {
+                return RedirectToAction("Index", "LogIn");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            // Validate rating
+            if (model.Rating < 1 || model.Rating > 5)
+            {
+                ModelState.AddModelError("Rating", "Rating must be between 1 and 5 stars.");
+                return View(model);
+            }
+
+            // Check if review already exists
+            if (HasExistingReview(model.RouteID, int.Parse(uid), model.ReviewedUserID))
+            {
+                TempData["Error"] = "You have already reviewed this trip.";
+                return RedirectToAction("MyBookings");
+            }
+
+            // Insert review
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string insertQuery = @"
+                    INSERT INTO Review (RouteID, ReviewerID, ReviewedUserID, Rating, Comment)
+                    VALUES (@RouteID, @ReviewerID, @ReviewedUserID, @Rating, @Comment)";
+
+                using SqlCommand command = new SqlCommand(insertQuery, connection);
+                command.Parameters.AddWithValue("@RouteID", model.RouteID);
+                command.Parameters.AddWithValue("@ReviewerID", int.Parse(uid));
+                command.Parameters.AddWithValue("@ReviewedUserID", model.ReviewedUserID);
+                command.Parameters.AddWithValue("@Rating", model.Rating);
+                command.Parameters.AddWithValue("@Comment", model.Comment ?? "");
+
+                command.ExecuteNonQuery();
+            }
+
+            TempData["Success"] = "Thank you for your review! Your feedback has been submitted.";
+            return RedirectToAction("MyBookings");
+        }
+
+        // Helper method to get review view model
+        private ReviewViewModel? GetReviewViewModel(int bookingId, int userId)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = @"
+                    SELECT 
+                        b.BookingID,
+                        b.RouteID,
+                        r.Departure,
+                        r.UID AS DriverID,
+                        u.UserName AS DriverName,
+                        sc.CityName AS StartCity,
+                        ec.CityName AS EndCity
+                    FROM Booking b
+                    INNER JOIN Route r ON b.RouteID = r.RouteID
+                    INNER JOIN [User] u ON r.UID = u.UID
+                    INNER JOIN City sc ON r.StartCityID = sc.CityID
+                    INNER JOIN City ec ON r.EndCityID = ec.CityID
+                    WHERE b.BookingID = @BookingID 
+                    AND b.PassengerID = @PassengerID 
+                    AND b.Status = 'Confirmed'
+                    AND r.Departure < GETDATE()";
+
+                using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@BookingID", bookingId);
+                command.Parameters.AddWithValue("@PassengerID", userId);
+
+                using SqlDataReader reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    var model = new ReviewViewModel
+                    {
+                        BookingID = (int)reader["BookingID"],
+                        RouteID = (int)reader["RouteID"],
+                        ReviewedUserID = (int)reader["DriverID"],
+                        ReviewedUserName = reader["DriverName"]?.ToString() ?? "",
+                        StartCity = reader["StartCity"]?.ToString() ?? "",
+                        EndCity = reader["EndCity"]?.ToString() ?? "",
+                        Departure = (DateTime)reader["Departure"]
+                    };
+
+                    reader.Close();
+
+                    // Check if review already exists
+                    model.HasExistingReview = HasExistingReview(model.RouteID, userId, model.ReviewedUserID);
+                    
+                    return model;
+                }
+            }
+
+            return null;
+        }
+
+        // Helper method to check if review already exists
+        private bool HasExistingReview(int routeId, int reviewerId, int reviewedUserId)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = @"
+                    SELECT COUNT(*) 
+                    FROM Review 
+                    WHERE RouteID = @RouteID 
+                    AND ReviewerID = @ReviewerID 
+                    AND ReviewedUserID = @ReviewedUserID";
+
+                using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@RouteID", routeId);
+                command.Parameters.AddWithValue("@ReviewerID", reviewerId);
+                command.Parameters.AddWithValue("@ReviewedUserID", reviewedUserId);
+
+                return (int)command.ExecuteScalar() > 0;
+            }
         }
 
         // Helper method to get route with availability
@@ -654,6 +841,71 @@ namespace SamkørselApp.Controllers
                 using SqlCommand updateCommand = new SqlCommand(updateQuery, connection);
                 updateCommand.Parameters.AddWithValue("@BookingID", bookingId);
                 updateCommand.ExecuteNonQuery();
+
+                // Get booking details for the automatic message
+                string getBookingDetailsQuery = @"
+                    SELECT b.PassengerID, b.SeatsBooked, b.PricePaid, r.RouteID
+                    FROM Booking b
+                    INNER JOIN Route r ON b.RouteID = r.RouteID
+                    WHERE b.BookingID = @BookingID";
+
+                int passengerId = 0;
+                int seatsBooked = 0;
+                decimal pricePaid = 0;
+                int routeId = 0;
+
+                using SqlCommand detailsCommand = new SqlCommand(getBookingDetailsQuery, connection);
+                detailsCommand.Parameters.AddWithValue("@BookingID", bookingId);
+                using SqlDataReader detailsReader = detailsCommand.ExecuteReader();
+                if (detailsReader.Read())
+                {
+                    passengerId = (int)detailsReader["PassengerID"];
+                    seatsBooked = (int)detailsReader["SeatsBooked"];
+                    pricePaid = (decimal)detailsReader["PricePaid"];
+                    routeId = (int)detailsReader["RouteID"];
+                }
+                detailsReader.Close();
+
+                // Send automatic approval message
+                if (passengerId > 0 && routeId > 0)
+                {
+                    try
+                    {
+                        // Find the conversation between driver and passenger
+                        string findConversationQuery = @"
+                            SELECT c.ConversationID
+                            FROM Conversation c
+                            INNER JOIN ConversationParticipant cp1 ON c.ConversationID = cp1.ConversationID
+                            INNER JOIN ConversationParticipant cp2 ON c.ConversationID = cp2.ConversationID
+                            WHERE c.RouteID = @RouteID
+                            AND cp1.UserID = @DriverID
+                            AND cp2.UserID = @PassengerID
+                            AND cp1.UserID != cp2.UserID";
+
+                        using SqlCommand convCommand = new SqlCommand(findConversationQuery, connection);
+                        convCommand.Parameters.AddWithValue("@RouteID", routeId);
+                        convCommand.Parameters.AddWithValue("@DriverID", int.Parse(uid));
+                        convCommand.Parameters.AddWithValue("@PassengerID", passengerId);
+
+                        object conversationResult = convCommand.ExecuteScalar();
+                        if (conversationResult != null)
+                        {
+                            int conversationId = (int)conversationResult;
+                            string approvalMessage = $"✅ Booking APPROVED!\n\n" +
+                                                    $"Booking ID: #{bookingId}\n" +
+                                                    $"Seats confirmed: {seatsBooked}\n" +
+                                                    $"Total price: €{pricePaid:F2}\n" +
+                                                    $"Status: Confirmed\n\n" +
+                                                    $"Your booking has been approved by the driver. Have a great trip! 🚗✨";
+
+                            SendAutomaticMessage(conversationId, int.Parse(uid), approvalMessage);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to send approval message: {ex.Message}");
+                    }
+                }
             }
 
             TempData["Success"] = "Booking approved successfully!";
@@ -692,11 +944,76 @@ namespace SamkørselApp.Controllers
                     return RedirectToAction("BookingRequests");
                 }
 
+                // Get booking details for the automatic message before updating
+                string getBookingDetailsQuery = @"
+                    SELECT b.PassengerID, b.SeatsBooked, b.PricePaid, r.RouteID
+                    FROM Booking b
+                    INNER JOIN Route r ON b.RouteID = r.RouteID
+                    WHERE b.BookingID = @BookingID";
+
+                int passengerId = 0;
+                int seatsBooked = 0;
+                decimal pricePaid = 0;
+                int routeId = 0;
+
+                using SqlCommand detailsCommand = new SqlCommand(getBookingDetailsQuery, connection);
+                detailsCommand.Parameters.AddWithValue("@BookingID", bookingId);
+                using SqlDataReader detailsReader = detailsCommand.ExecuteReader();
+                if (detailsReader.Read())
+                {
+                    passengerId = (int)detailsReader["PassengerID"];
+                    seatsBooked = (int)detailsReader["SeatsBooked"];
+                    pricePaid = (decimal)detailsReader["PricePaid"];
+                    routeId = (int)detailsReader["RouteID"];
+                }
+                detailsReader.Close();
+
                 // Update booking status to Rejected
                 string updateQuery = "UPDATE Booking SET Status = 'Rejected' WHERE BookingID = @BookingID";
                 using SqlCommand updateCommand = new SqlCommand(updateQuery, connection);
                 updateCommand.Parameters.AddWithValue("@BookingID", bookingId);
                 updateCommand.ExecuteNonQuery();
+
+                // Send automatic rejection message
+                if (passengerId > 0 && routeId > 0)
+                {
+                    try
+                    {
+                        // Find the conversation between driver and passenger
+                        string findConversationQuery = @"
+                            SELECT c.ConversationID
+                            FROM Conversation c
+                            INNER JOIN ConversationParticipant cp1 ON c.ConversationID = cp1.ConversationID
+                            INNER JOIN ConversationParticipant cp2 ON c.ConversationID = cp2.ConversationID
+                            WHERE c.RouteID = @RouteID
+                            AND cp1.UserID = @DriverID
+                            AND cp2.UserID = @PassengerID
+                            AND cp1.UserID != cp2.UserID";
+
+                        using SqlCommand convCommand = new SqlCommand(findConversationQuery, connection);
+                        convCommand.Parameters.AddWithValue("@RouteID", routeId);
+                        convCommand.Parameters.AddWithValue("@DriverID", int.Parse(uid));
+                        convCommand.Parameters.AddWithValue("@PassengerID", passengerId);
+
+                        object conversationResult = convCommand.ExecuteScalar();
+                        if (conversationResult != null)
+                        {
+                            int conversationId = (int)conversationResult;
+                            string rejectionMessage = $"❌ Booking REJECTED\n\n" +
+                                                     $"Booking ID: #{bookingId}\n" +
+                                                     $"Seats requested: {seatsBooked}\n" +
+                                                     $"Amount: €{pricePaid:F2}\n" +
+                                                     $"Status: Rejected\n\n" +
+                                                     $"Unfortunately, your booking request has been declined by the driver. Please try booking another route.";
+
+                            SendAutomaticMessage(conversationId, int.Parse(uid), rejectionMessage);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to send rejection message: {ex.Message}");
+                    }
+                }
             }
 
             TempData["Success"] = "Booking rejected.";
@@ -859,6 +1176,9 @@ namespace SamkørselApp.Controllers
         public string EndCity { get; set; } = "";
         public DateTime Departure { get; set; }
         public string DriverName { get; set; } = "";
+        public int RouteID { get; set; }
+        public int DriverID { get; set; }
+        public bool IsPastBooking => Departure < DateTime.Now;
     }
 
     // ViewModel for driver's booking requests

@@ -38,7 +38,43 @@
                                     </tr>
                                     <tr>
                                         <th>Rating:</th>
-                                        <td>@ViewBag.Rating</td>
+                                        <td>
+                                            @if (ViewBag.ReviewCount > 0)
+                                            {
+                                                <div class="d-flex align-items-center">
+                                                    <div class="star-display me-2">
+                                                        @{
+                                                            double averageRating = (double)ViewBag.AverageRating;
+                                                            int fullStars = (int)Math.Floor(averageRating);
+                                                            bool hasHalfStar = averageRating - fullStars >= 0.5;
+                                                            int emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+                                                        }
+                                                        
+                                                        @for (int i = 0; i < fullStars; i++)
+                                                        {
+                                                            <span class="star filled">★</span>
+                                                        }
+                                                        
+                                                        @if (hasHalfStar)
+                                                        {
+                                                            <span class="star half">☆</span>
+                                                        }
+                                                        
+                                                        @for (int i = 0; i < emptyStars; i++)
+                                                        {
+                                                            <span class="star empty">☆</span>
+                                                        }
+                                                    </div>
+                                                    <span class="rating-text">
+                                                        @averageRating.ToString("F1") (@ViewBag.ReviewCount review@(ViewBag.ReviewCount == 1 ? "" : "s"))
+                                                    </span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">No reviews yet</span>
+                                            }
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>Member since:</th>
@@ -48,6 +84,59 @@
                             </table>
                             <a asp-controller="Profile" asp-action="Edit" class="btn btn-primary">Edit Profile</a>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CO2 Savings Section -->
+            <div class="card mt-4">
+                <div class="card-header d-flex align-items-center">
+                    <h4 class="mb-0 me-2">🌱 Environmental Impact</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-success mb-1">@string.Format("{0:N0}", ViewBag.TotalCO2Saved ?? 0)g</h3>
+                                <small class="text-muted">CO2 Saved</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-primary mb-1">@string.Format("{0:N1}", ViewBag.TotalDistanceKm ?? 0) km</h3>
+                                <small class="text-muted">Total Distance</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-info mb-1">@(ViewBag.TotalTripsAsDriver ?? 0)</h3>
+                                <small class="text-muted">Trips as Driver</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-warning mb-1">@(ViewBag.TotalTripsAsPassenger ?? 0)</h3>
+                                <small class="text-muted">Trips as Passenger</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <p class="text-muted mb-1">
+                            <strong>How we calculate:</strong> 150g CO2 per km, divided by total people in car (passengers + driver)
+                        </p>
+                        @if ((ViewBag.TotalCO2Saved ?? 0) > 0)
+                        {
+                            <p class="text-success">
+                                <i class="fas fa-leaf"></i> 
+                                You've prevented approximately <strong>@string.Format("{0:N2}", (ViewBag.TotalCO2Saved ?? 0) / 1000) kg</strong> of CO2 from entering the atmosphere!
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="text-muted">
+                                Start carpooling to see your environmental impact!
+                            </p>
+                        }
                     </div>
                 </div>
             </div>
@@ -92,3 +181,31 @@
         </div>
     </div>
 </div>
+
+<style>
+    .star-display {
+        display: inline-block;
+    }
+    
+    .star {
+        font-size: 1.2rem;
+        margin-right: 2px;
+    }
+    
+    .star.filled {
+        color: #ffc107;
+    }
+    
+    .star.half {
+        color: #ffc107;
+    }
+    
+    .star.empty {
+        color: #e0e0e0;
+    }
+    
+    .rating-text {
+        font-size: 0.95rem;
+        color: #6c757d;
+    }
+</style>

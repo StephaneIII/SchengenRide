@@ -58,7 +58,7 @@ namespace SamkørselApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create(DateTime Departure, DateTime? Arrival, int AvailableSeats, decimal PricePerSeat, int VehicleId, string? Description, List<ItineraryStopInput> Stops)
+        public async Task<IActionResult> Create(DateTime Departure, DateTime? Arrival, int AvailableSeats, decimal PricePerSeat, int VehicleId, string? Description, List<ItineraryStopInput> Stops)
         {
             string? uid = HttpContext.Session.GetString("UID");
 
@@ -78,6 +78,71 @@ namespace SamkørselApp.Controllers
             var orderedStops = Stops.OrderBy(s => s.StopOrder).ToList();
             int startCityID = orderedStops.First().CityID;
             int endCityID = orderedStops.Last().CityID;
+
+            // Get city coordinates for TomTom API call
+            City? startCity = null;
+            City? endCity = null;
+            
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                
+                // Get start city coordinates
+                string cityQuery = "SELECT CityID, CityName, CityXCoord, CityYCoord FROM City WHERE CityID = @CityID";
+                using (SqlCommand command = new SqlCommand(cityQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@CityID", startCityID);
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            startCity = new City(
+                                (int)reader["CityID"],
+                                reader["CityName"]?.ToString() ?? "",
+                                (double)reader["CityXCoord"],
+                                (double)reader["CityYCoord"]
+                            );
+                        }
+                    }
+                }
+                
+                // Get end city coordinates
+                using (SqlCommand command = new SqlCommand(cityQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@CityID", endCityID);
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            endCity = new City(
+                                (int)reader["CityID"],
+                                reader["CityName"]?.ToString() ?? "",
+                                (double)reader["CityXCoord"],
+                                (double)reader["CityYCoord"]
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Calculate route distance and time using TomTom API
+            decimal? distanceKm = null;
+            int? travelTimeMinutes = null;
+            
+            if (startCity != null && endCity != null)
+            {
+                using var tomTomService = new TomTomService();
+                var routeInfo = await tomTomService.CalculateRouteAsync(
+                    startCity.CityYCoord, startCity.CityXCoord, // Note: TomTom expects lat,lon
+                    endCity.CityYCoord, endCity.CityXCoord
+                );
+                
+                if (routeInfo != null)
+                {
+                    distanceKm = routeInfo.DistanceKm;
+                    travelTimeMinutes = (int)routeInfo.TravelTimeMinutes;
+                }
+            }
 
             int routeID;
 
@@ -107,8 +172,8 @@ namespace SamkørselApp.Controllers
                         routeCommand.Parameters.AddWithValue("@VehicleID", VehicleId);
                         routeCommand.Parameters.AddWithValue("@Description", (object?)Description ?? DBNull.Value);
                         routeCommand.Parameters.AddWithValue("@Status", "Active");
-                        routeCommand.Parameters.AddWithValue("@DistanceKm", DBNull.Value); // Will be populated later via TomTom API
-                        routeCommand.Parameters.AddWithValue("@ExpectedTravelTimeMinutes", DBNull.Value); // Will be populated later via TomTom API
+                        routeCommand.Parameters.AddWithValue("@DistanceKm", (object?)distanceKm ?? DBNull.Value);
+                        routeCommand.Parameters.AddWithValue("@ExpectedTravelTimeMinutes", (object?)travelTimeMinutes ?? DBNull.Value);
 
                         routeID = (int)routeCommand.ExecuteScalar();
                     }
@@ -174,6 +239,122 @@ namespace SamkørselApp.Controllers
                 }
             }
             return Json(cities);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CalculateAutomaticTimes([FromBody] AutoTimingRequest request)
+        {
+            try
+            {
+                if (request?.CityIds == null || request.CityIds.Count < 2)
+                {
+                    return Json(new { success = false, error = "At least 2 cities required" });
+                }
+
+                // Get cities with coordinates
+                var cities = new List<City>();
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    foreach (int cityId in request.CityIds)
+                    {
+                        string query = "SELECT CityID, CityName, CityXCoord, CityYCoord FROM City WHERE CityID = @CityID";
+                        using (SqlCommand command = new SqlCommand(query, connection))
+                        {
+                            command.Parameters.AddWithValue("@CityID", cityId);
+                            using (SqlDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    cities.Add(new City(
+                                        (int)reader["CityID"],
+                                        reader["CityName"].ToString() ?? "",
+                                        (double)reader["CityXCoord"],
+                                        (double)reader["CityYCoord"]
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (cities.Count != request.CityIds.Count)
+                {
+                    return Json(new { success = false, error = "Some cities not found" });
+                }
+
+                // Parse start time from request
+                DateTime currentTime = DateTime.Now;
+                if (!string.IsNullOrEmpty(request.StartTime) && DateTime.TryParse(request.StartTime, out DateTime startTime))
+                {
+                    currentTime = startTime;
+                }
+
+                // Parse end time if provided
+                DateTime? endTime = null;
+                if (!string.IsNullOrEmpty(request.EndTime) && DateTime.TryParse(request.EndTime, out DateTime parsedEndTime))
+                {
+                    endTime = parsedEndTime;
+                }
+
+                // Calculate times using TomTom
+                var results = new List<dynamic>();
+
+                using (var tomTomService = new TomTomService())
+                {
+                    for (int i = 0; i < cities.Count; i++)
+                    {
+                        if (i == 0)
+                        {
+                            // First city - use departure time from step 1
+                            results.Add(new
+                            {
+                                cityId = cities[i].CityID,
+                                minArrivalTime = currentTime.ToString("yyyy-MM-ddTHH:mm"),
+                                travelTimeFromPrevious = 0
+                            });
+                        }
+                        else if (i == cities.Count - 1 && endTime.HasValue)
+                        {
+                            // Last city - use arrival time from step 1 if provided
+                            results.Add(new
+                            {
+                                cityId = cities[i].CityID,
+                                minArrivalTime = endTime.Value.ToString("yyyy-MM-ddTHH:mm"),
+                                travelTimeFromPrevious = 0
+                            });
+                        }
+                        else
+                        {
+                            // Calculate travel time from previous city
+                            var routeResult = await tomTomService.CalculateRouteAsync(
+                                cities[i - 1].CityYCoord, // Lat
+                                cities[i - 1].CityXCoord, // Lon
+                                cities[i].CityYCoord,      // Lat
+                                cities[i].CityXCoord       // Lon
+                            );
+
+                            double travelTimeMinutes = routeResult?.TravelTimeMinutes ?? 60; // Default 1 hour if API fails
+                            currentTime = currentTime.AddMinutes(travelTimeMinutes);
+
+                            // For the last city without end time, use calculated time
+                            // For middle cities, use calculated time
+                            results.Add(new
+                            {
+                                cityId = cities[i].CityID,
+                                minArrivalTime = currentTime.ToString("yyyy-MM-ddTHH:mm"),
+                                travelTimeFromPrevious = Math.Round(travelTimeMinutes, 0)
+                            });
+                        }
+                    }
+                }
+
+                return Json(new { success = true, results });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
         }
 
 
@@ -336,6 +517,44 @@ namespace SamkørselApp.Controllers
                     ViewBag.Route = route;
                     ViewBag.Driver = driver;
                     ViewBag.Vehicle = vehicle;
+
+                    // Get driver's review statistics if driver exists
+                    if (driver != null)
+                    {
+                        string reviewQuery = @"
+                            SELECT 
+                                AVG(CAST(Rating AS FLOAT)) AS AverageRating,
+                                COUNT(*) AS ReviewCount
+                            FROM Review 
+                            WHERE ReviewedUserID = @DriverID";
+
+                        using (SqlCommand command = new SqlCommand(reviewQuery, connection))
+                        {
+                            command.Parameters.AddWithValue("@DriverID", driver.UID);
+
+                            using (SqlDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    var averageRating = reader["AverageRating"] != DBNull.Value ? (double)reader["AverageRating"] : 0.0;
+                                    var reviewCount = reader["ReviewCount"] != DBNull.Value ? (int)reader["ReviewCount"] : 0;
+                                    
+                                    ViewBag.DriverAverageRating = averageRating;
+                                    ViewBag.DriverReviewCount = reviewCount;
+                                }
+                                else
+                                {
+                                    ViewBag.DriverAverageRating = 0.0;
+                                    ViewBag.DriverReviewCount = 0;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ViewBag.DriverAverageRating = 0.0;
+                        ViewBag.DriverReviewCount = 0;
+                    }
 
                     return View();
                 }

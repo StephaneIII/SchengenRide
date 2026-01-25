@@ -157,26 +157,40 @@
                                     }
                                     <div>
                                         <h6 class="mb-0">@driver.UserName</h6>
-                                        @if (driver.Rating.HasValue)
+                                        @if (ViewBag.DriverReviewCount > 0)
                                         {
-                                            <div class="text-warning">
-                                                @for (int i = 1; i <= 5; i++)
-                                                {
-                                                    @if (i <= driver.Rating.Value)
-                                                    {
-                                                        <i class="fas fa-star"></i>
+                                            <div class="d-flex align-items-center">
+                                                <div class="star-display me-2">
+                                                    @{
+                                                        double averageRating = (double)ViewBag.DriverAverageRating;
+                                                        int fullStars = (int)Math.Floor(averageRating);
+                                                        bool hasHalfStar = averageRating - fullStars >= 0.5;
+                                                        int emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
                                                     }
-                                                    else if (i - 0.5 <= driver.Rating.Value)
+                                                    
+                                                    @for (int i = 0; i < fullStars; i++)
                                                     {
-                                                        <i class="fas fa-star-half-alt"></i>
+                                                        <span class="star filled">★</span>
                                                     }
-                                                    else
+                                                    
+                                                    @if (hasHalfStar)
                                                     {
-                                                        <i class="far fa-star"></i>
+                                                        <span class="star half">☆</span>
                                                     }
-                                                }
-                                                <span class="text-muted ms-1">(@driver.Rating.Value.ToString("0.0"))</span>
+                                                    
+                                                    @for (int i = 0; i < emptyStars; i++)
+                                                    {
+                                                        <span class="star empty">☆</span>
+                                                    }
+                                                </div>
+                                                <span class="rating-text">
+                                                    @averageRating.ToString("F1") (@ViewBag.DriverReviewCount review@(ViewBag.DriverReviewCount == 1 ? "" : "s"))
+                                                </span>
                                             </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No reviews yet</span>
                                         }
                                     </div>
                                 </div>
@@ -400,5 +414,31 @@
     
     .timeline-content {
         flex-grow: 1;
+    }
+
+    .star-display {
+        display: inline-block;
+    }
+    
+    .star {
+        font-size: 1rem;
+        margin-right: 1px;
+    }
+    
+    .star.filled {
+        color: #ffc107;
+    }
+    
+    .star.half {
+        color: #ffc107;
+    }
+    
+    .star.empty {
+        color: #e0e0e0;
+    }
+    
+    .rating-text {
+        font-size: 0.85rem;
+        color: #6c757d;
     }
 </style>

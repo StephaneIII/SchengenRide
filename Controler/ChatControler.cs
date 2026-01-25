@@ -59,7 +59,14 @@ namespace MyWebApp.Controllers
                             FROM Message m 
                             WHERE m.ConversationID = c.ConversationID 
                             ORDER BY m.SentAt DESC
-                        ) AS LastUpdated
+                        ) AS LastUpdated,
+                        (
+                            SELECT COUNT(*) 
+                            FROM Message m2
+                            WHERE m2.ConversationID = c.ConversationID 
+                            AND m2.SenderID != @UserID
+                            AND m2.SentAt > ISNULL(cp.LastSeenAt, cp.JoinedAt)
+                        ) AS UnreadCount
                     FROM Conversation c
                     INNER JOIN ConversationParticipant cp ON c.ConversationID = cp.ConversationID
                     WHERE cp.UserID = @UserID
@@ -78,7 +85,8 @@ namespace MyWebApp.Controllers
                         title: reader["Title"]?.ToString() ?? "",
                         lastMessage: reader["LastMessage"]?.ToString() ?? "",
                         lastUpdated: reader["LastUpdated"] != DBNull.Value ? (DateTime)reader["LastUpdated"] : DateTime.MinValue,
-                        routeID: reader["RouteID"] != DBNull.Value ? (int)reader["RouteID"] : 0
+                        routeID: reader["RouteID"] != DBNull.Value ? (int)reader["RouteID"] : 0,
+                        unreadCount: reader["UnreadCount"] != DBNull.Value ? (int)reader["UnreadCount"] : 0
                     ));
                 }
             }

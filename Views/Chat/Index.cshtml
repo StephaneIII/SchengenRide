@@ -83,12 +83,16 @@
                                             }
                                         }
                                     </small>
-                                    @if (conversation.RouteID > 0)
-                                    {
-                                        <div class="mt-1">
-                                            <span class="badge bg-info">Route #@conversation.RouteID</span>
-                                        </div>
-                                    }
+                                    <div class="mt-1">
+                                        @if (conversation.RouteID > 0)
+                                        {
+                                            <span class="badge bg-info me-1">Route #@conversation.RouteID</span>
+                                        }
+                                        @if (conversation.UnreadCount > 0)
+                                        {
+                                            <span class="badge bg-danger">@conversation.UnreadCount unread</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </a>
